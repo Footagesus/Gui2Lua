@@ -11,6 +11,13 @@
 
 - Doesn't work UIGradients
 
-## Installation
+## Usage
 
-1. Clone the repository:
+1. Execute the script
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/Gui2Lua/refs/heads/main/main.lua"))()
+```
+
+2. Enter path to ScreenGui Instance
+3. Click "Convert"
+> The output code will be saved in Gui2lua/[ScreenGuiName].Lua
