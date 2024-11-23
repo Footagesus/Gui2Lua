@@ -1,4 +1,4 @@
-# Gui2Lua
+# Gui2Lua (Ingame)
 
 `Gui2Lua` is a Roblox script that converts GUI elements into Lua code for easy integration into your projects. It allows you to quickly create and customize GUI components, and generate the corresponding Lua code for use in Roblox Studio.
 
