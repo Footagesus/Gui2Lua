@@ -21,6 +21,8 @@ local Gui = {
         "Size", "Position", "AutomaticSize", "AnchorPoint",
         "BackgroundTransparency", "Transparency", 
         "BackgroundColor3", 
+        "SizeConstraint", "Interactable",
+        "SelectionOrder", "SelectionImageObject",
         
         -- CanvasGroup
         "GroupTransparency", "GroupColor3", 
@@ -36,13 +38,21 @@ local Gui = {
         -- UIPadding
         "PaddingTop", "PaddingLeft", "PaddingRight", "PaddingBottom",
         
+        -- ScrollingFrame
+        "CanvasPosition", "CanvasSize", "ElasticBehavior", 
+        "HorizontalScrollBarInset", "VerticalScrollBarInset",
+        "VerticalScrollBarPosition",
+        "BottomImage", "TopImage", "MidImage",
+        "ScrollBarImageColor3", "ScrollBarImageTransparency",
+        "ScrollBarThickness", "ScrollingDirection", "ScrollingEnabled",
+        
         -- UICorner
         "CornerRadius", 
         
         -- UIScale
         "Scale", 
         
-        -- UIStroke
+        -- UIStroke, UIGradient
         "Thickness", "ApplyStrokeMode", "Color",
         
         -- UIListLayout
@@ -57,6 +67,32 @@ local Gui = {
     },
     
     Serializers = {
+        ColorSequence = function(colorSequence)
+            local keypoints = colorSequence.Keypoints
+            local serializedKeypoints = {}
+            for _, keypoint in ipairs(keypoints) do
+                table.insert(serializedKeypoints, string.format("ColorSequenceKeypoint.new(%s, Color3.fromRGB(%d, %d, %d))",
+                    keypoint.Time,
+                    math.floor(keypoint.Value.R * 255),
+                    math.floor(keypoint.Value.G * 255),
+                    math.floor(keypoint.Value.B * 255)
+                ))
+            end
+            return string.format("ColorSequence.new({%s})", table.concat(serializedKeypoints, ", "))
+        end,
+        
+        NumberSequence = function(numberSequence)
+            local keypoints = numberSequence.Keypoints
+            local serializedKeypoints = {}
+            for _, keypoint in ipairs(keypoints) do
+                table.insert(serializedKeypoints, string.format("NumberSequenceKeypoint.new(%s, %s, %s)",
+                    keypoint.Time,
+                    keypoint.Value,
+                    keypoint.Envelope
+                ))
+            end
+            return string.format("NumberSequence.new({%s})", table.concat(serializedKeypoints, ", "))
+        end,
         Color3 = function(color)
             return string.format("Color3.fromRGB(%d, %d, %d)", 
                 math.floor(color.R * 255), 
@@ -97,24 +133,27 @@ local Gui = {
         string = function(value)
             return string.format("%q", value)
         end,
-    }
+    },
+    Counters = {}
 }
 
 
-function Gui:SerializeObject(object)
+function Gui:GenerateName(objectType)
+    Gui.Counters[objectType] = (Gui.Counters[objectType] or 0) + 1
+    return string.format("%s_%d", objectType, Gui.Counters[objectType])
+end
+
+function Gui:SerializeObject(object, parentVar)
     local output = ""
-    local name = object.Name:gsub("%s+", "_")
+    local name = Gui:GenerateName(object.ClassName)
     
     output = output .. string.format("local %s = Instance.new(%q)\n", name, object.ClassName)
+    output = output .. string.format("%s.Parent = %s\n", name, parentVar or "game.CoreGui")
     
-    if object.ClassName == "ScreenGui" then
-        output = output .. string.format("%s.Parent = game.CoreGui\n", name)
-    end
-    
-    for _, property in ipairs(self.Properties) do
+    for _, property in next, Gui.Properties do
         local success, value = pcall(function() return object[property] end)
         if success and value ~= nil then
-            local serializer = self.Serializers[typeof(value)]
+            local serializer = Gui.Serializers[typeof(value)]
             if serializer then
                 output = output .. string.format("%s.%s = %s\n", name, property, serializer(value))
             end
@@ -122,26 +161,14 @@ function Gui:SerializeObject(object)
     end
     
     for _, child in ipairs(object:GetChildren()) do
-        output = output .. self:SerializeObject(child)
-        output = output .. string.format("%s.Parent = %s\n", child.Name, name)
+        output = output .. Gui:SerializeObject(child, name)
     end
     
     return output
 end
 
-function Gui:SerializeProperty(object, prop)
-    local success, value = pcall(function() return object[prop] end)
-    if success and value ~= nil then
-        local serializer = self.Serializers[typeof(value)]
-        if serializer then
-            return serializer(value)
-        end
-    end
-    return nil
-end
-
 function Gui:Save(object, filename)
-    local luaCode = self:SerializeObject(object)
+    local luaCode = Gui:SerializeObject(object)
     writefile(filename, luaCode)
 end
 
